@@ -1,99 +1,143 @@
 import random
 import numpy as np
-from deap import base, creator, tools, algorithms
 import matplotlib.pyplot as plt
-import warnings
+from deap import base, creator, tools, algorithms
 
-warnings.filterwarnings("ignore")
 
-# Configuration constants
+# config
 DIMENSIONS = 10
-POP_SIZE = 200
-NGEN = 100
-CXPB = 0.8
-MUTPB = 0.05
-PENALTY = 0.01
-SEED = 42
+LOWER_BOUND = 0.0
+UPPER_BOUND = 1.0
+POP_SIZE = 100
+NGEN = 1000
+CXPB = 0.8  # crossover probability
+MUTPB = 0.1  # mutation probability
+random.seed(42)
+np.random.seed(42)
 
-random.seed(SEED)
-np.random.seed(SEED)
+# creator
+creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+creator.create("Individual", list, fitness=creator.FitnessMin)
 
-# Define fitness and individual classes
-creator.create("FitnessMax", base.Fitness, weights=(1.0,))
-creator.create("Individual", list, fitness=creator.FitnessMax)
 
+# evaluate
 def evaluate(individual):
-    num_selected = sum(individual)
-    if num_selected == 0:
-        return (0,) # Avoid division by zero issues or invalid states
-    # Simple surrogate accuracy: increases with number of selected features
-    accuracy = 0.5 + 0.5 * (num_selected / DIMENSIONS)
-    fitness = accuracy - PENALTY * num_selected
-    return (fitness,)
+    """Mock energy function for a protein conformation.
+    The real function would compute bonded, angle, dihedral and non-bonded terms.
+    Here we use a simple quadratic term plus a small interaction term.
+    """
+    arr = np.array(individual)
+    energy = np.sum(arr**2) + 0.5 * np.sum(np.abs(np.diff(arr)))
+    return (energy,)
 
+
+# crossover
 def mate(ind1, ind2):
-    tools.cxUniform(ind1, ind2, indpb=0.5)
+    """Blend crossover (cxBlend) with alpha=0.5."""
+    tools.cxBlend(ind1, ind2, alpha=0.5)
     return ind1, ind2
 
+
+# mutation
 def mutate(individual):
-    tools.mutFlipBit(individual, indpb=MUTPB)
+    """Gaussian mutation with clipping to the search bounds."""
+    tools.mutGaussian(individual, mu=0.0, sigma=0.1, indpb=0.2)
+    # Clip to bounds
+    for i in range(len(individual)):
+        if individual[i] < LOWER_BOUND:
+            individual[i] = LOWER_BOUND
+        elif individual[i] > UPPER_BOUND:
+            individual[i] = UPPER_BOUND
     return (individual,)
 
+
+# selection
 def select(population, k):
-    return tools.selRoulette(population, k)
+    """Tournament selection with tournsize=3."""
+    return tools.selTournament(population, k, tournsize=3)
 
+
+# additional_operators
+# Placeholder for any future custom operators (e.g., elitism, crowding).
+# Currently the standard DEAP operators are sufficient for this demo.
+
+
+# initialization
 def create_individual():
-    return [random.randint(0, 1) for _ in range(DIMENSIONS)]
+    """Create a random individual within the defined bounds."""
+    return [random.uniform(LOWER_BOUND, UPPER_BOUND) for _ in range(DIMENSIONS)]
 
+
+# toolbox_registration
 toolbox = base.Toolbox()
-
-# --- FIX 1: Correct Registration syntax (pass args separately) ---
-toolbox.register("individual", tools.initIterate, creator.Individual, create_individual)
+# Attribute generator
+toolbox.register("attr_float", random.uniform, LOWER_BOUND, UPPER_BOUND)
+# Structure initializers
+toolbox.register(
+    "individual", tools.initRepeat, creator.Individual, toolbox.attr_float, n=DIMENSIONS
+)
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
-# --- FIX 2: Register the genetic operators ---
+# Operator registrations
 toolbox.register("evaluate", evaluate)
 toolbox.register("mate", mate)
 toolbox.register("mutate", mutate)
 toolbox.register("select", select)
 
-def main():
-    pop = toolbox.population(n=POP_SIZE)
-    hof = tools.HallOfFame(1)
-    
-    stats = tools.Statistics(lambda ind: ind.fitness.values[0])
-    stats.register("avg", np.mean)
-    stats.register("max", np.max)
-    stats.register("min", np.min)
-    
-    # verbose=True prints the logs to console
-    pop, logbook = algorithms.eaSimple(pop, toolbox, cxpb=CXPB, mutpb=MUTPB,
-                                       ngen=NGEN, stats=stats, halloffame=hof,
-                                       verbose=True)
-    return pop, logbook, hof
+# evolution_loop
+pop = toolbox.population(n=POP_SIZE)
+stats = tools.Statistics(lambda ind: ind.fitness.values)
+stats.register("min", np.min)
+stats.register("avg", np.mean)
+logbook = tools.Logbook()
+logbook.header = ["gen", "nevals"] + stats.fields
 
-if __name__ == "__main__":
-    pop, logbook, hof = main()
+for gen in range(NGEN):
+    # Selection
+    offspring = toolbox.select(pop, len(pop))
+    offspring = list(map(toolbox.clone, offspring))
 
-    best_ind = hof[0]
-    best_fitness = best_ind.fitness.values[0]
-    num_features = sum(best_ind)
-    
-    print(f"\nBest Individual: {best_ind}")
-    print(f"Fitness: {best_fitness:.4f}")
-    print(f"Number of selected features: {num_features}")
+    # Crossover
+    for child1, child2 in zip(offspring[::2], offspring[1::2]):
+        if random.random() < CXPB:
+            toolbox.mate(child1, child2)
+            del child1.fitness.values
+            del child2.fitness.values
 
-    # Plot evolution of fitness
-    gen = logbook.select("gen")
-    avg = logbook.select("avg")
-    max_f = logbook.select("max")
-    
-    plt.figure(figsize=(8,5))
-    plt.plot(gen, avg, label='Average Fitness')
-    plt.plot(gen, max_f, label='Max Fitness')
-    plt.xlabel('Generation')
-    plt.ylabel('Fitness')
-    plt.title('Evolution of Fitness over Generations')
+    # Mutation
+    for mutant in offspring:
+        if random.random() < MUTPB:
+            toolbox.mutate(mutant)
+            del mutant.fitness.values
+
+    # Evaluate invalid individuals
+    invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+    fitnesses = map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
+
+    # Replace population
+    pop[:] = offspring
+
+    # Record statistics
+    record = stats.compile(pop)
+    logbook.record(gen=gen, nevals=len(invalid_ind), **record)
+    if gen % 100 == 0:
+        print(logbook.stream)
+
+# results_and_plots
+best_ind = tools.selBest(pop, 1)[0]
+print("Best individual:", best_ind)
+print("Best fitness (minimum energy):", best_ind.fitness.values[0])
+
+# Plot convergence if matplotlib is available
+if True:
+    generations = logbook.select("gen")
+    min_fitness = logbook.select("min")
+    plt.figure(figsize=(8, 5))
+    plt.plot(generations, min_fitness, label="Minimum Energy")
+    plt.xlabel("Generation")
+    plt.ylabel("Energy")
+    plt.title("Evolution of Minimum Energy over Generations")
     plt.legend()
     plt.grid(True)
     plt.show()

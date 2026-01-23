@@ -4,6 +4,10 @@ __pycache__/
 *$py.class
 .claude
 
+# UV Virtual Environment
+evocllm
+
+
 # C extensions
 *.so
 
