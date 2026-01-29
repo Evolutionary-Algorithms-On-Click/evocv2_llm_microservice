@@ -20,7 +20,7 @@ class ObjectiveFunction(BaseModel):
 
 class ProblemConfig(BaseModel):
     """Problem specification."""
-    dimensions: int = Field(..., ge=1, description="Number of dimensions")
+    dimensions: str = Field(..., description="Number of dimensions")
     bounds: ProblemBounds
     objective: ObjectiveFunction
 
@@ -88,6 +88,12 @@ class GenerateRequest(BaseModel):
     objectiveFunction: Optional[str] = None
     objectiveType: Optional[str] = None
     formalEquation: Optional[str] = None
+
+    # Dataset details
+    dataSource: Optional[str] = None
+    dataHeaders: Optional[str] = None
+
+
 
     solutionRepresentation: Optional[str] = None
     solutionSize: Optional[str] = None

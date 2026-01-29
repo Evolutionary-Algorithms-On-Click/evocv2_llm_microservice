@@ -9,8 +9,12 @@ def get_complete_notebook_prompt(problem_data: Dict[str, Any]) -> str:
         for key, value in other_specs.items():
             other_specs_text += f"- {key}: {value}\n"
 
+
+
+    # TODO: Change prompt according to relative path in Docker file system (in NOTE: )
     prompt = f"""Generate a complete 12-cell DEAP evolutionary algorithm notebook.
 
+NOTE: Load dataset for input for the algorithm from mnt/user_data/session-id/{problem_data.get('data_source', 'N/A')}  with headers {problem_data.get('data_headers', 'N/A')} if applicable. Solve the problem using the provided dataset header.    
 **Problem Specification:**
 - Problem Name: {problem_data.get('problem_name', 'Optimization Problem')}
 - Goal: {problem_data.get('goal_description', 'Optimize the objective function')}
@@ -24,7 +28,7 @@ def get_complete_notebook_prompt(problem_data: Dict[str, Any]) -> str:
     prompt += f"""
 **Solution Representation:**
 - Type: {problem_data.get('solution_representation', 'real-valued')}
-- Size: {problem_data.get('solution_size', 10)} variables
+- Size: {problem_data.get('solution_size', 10)} variables mention as DIMENSIONS
 - Domain: [{problem_data.get('lower_bounds', [0])[0]}, {problem_data.get('upper_bounds', [1])[0]}]
 
 **Genetic Operators:**
@@ -36,6 +40,9 @@ def get_complete_notebook_prompt(problem_data: Dict[str, Any]) -> str:
 - Population Size: {problem_data.get('population_size', 100)}
 - Generations: {problem_data.get('num_generations', 50)}
 - Visualization: {problem_data.get('output_visualization', False)}
+
+
+
 {other_specs_text}
 
 **12-Cell Structure:**

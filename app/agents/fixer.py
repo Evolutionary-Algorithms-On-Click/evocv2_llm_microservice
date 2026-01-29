@@ -214,7 +214,7 @@ If the fix requires new packages, provide the full updated list of requirements.
         error_type = self._extract_error_type(traceback)
 
         # Try to extract cell location
-        cell_match = re.search(r'cell[_\]s*(\d+)', traceback.lower())
+        cell_match = re.search(r'cell[_]s*(\d+)', traceback.lower())
         cell_location = int(cell_match.group(1)) if cell_match else None
 
         return {

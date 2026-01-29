@@ -10,6 +10,8 @@ from app.memory import enhanced_memory
 from app.utils import format_code
 from app.prompts.modifier import get_affected_cells_analysis_prompt, get_cell_modification_prompt
 import logging
+from app.utils.cell_names import CellNameMapper
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,34 +46,7 @@ class NotebookModifier:
     """
 
     # map cell names to indices
-    CELL_MAP = {
-        "imports": 0,
-        "import": 0,
-        "config": 1,
-        "configuration": 1,
-        "creator": 2,
-        "evaluate": 3,
-        "evaluation": 3,
-        "fitness": 3,
-        "mate": 4,
-        "crossover": 4,
-        "mutate": 5,
-        "mutation": 5,
-        "select": 6,
-        "selection": 6,
-        "additional": 7,
-        "operators": 7,
-        "init": 8,
-        "initialization": 8,
-        "register": 9,
-        "toolbox": 9,
-        "evolution": 10,
-        "loop": 10,
-        "algorithm": 10,
-        "results": 11,
-        "plots": 11,
-        "plotting": 11
-    }
+    CELL_MAP = CellNameMapper.CELL_MAP
 
     def __init__(self):
         self.client = instructor.from_groq(
